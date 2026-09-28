@@ -37,11 +37,15 @@ export async function POST(req) {
     const completion = await db.collection("PaymentCompletion").findOne({ depositSessionId });
     const request = await db.collection("PaymentRequest").findOne({ depositSessionId });
 
+    const isReqSuccess = request && ["success", "completed"].includes(request.status);
+
     if (!completion) {
       return NextResponse.json({
         success: true,
-        verified: false,
-        reason: "No payment completion record found in gateway.",
+        verified: isReqSuccess,
+        amount: request?.amount || 0,
+        paymentStatus: request?.status || "registered",
+        reason: isReqSuccess ? "Verified via PaymentRequest." : "No payment completion record found in gateway.",
         isMandate: request ? !!request.isMandate : false,
         subscriptionPlan: request ? request.subscriptionPlan : null,
         requestRecord: request ? {
@@ -51,9 +55,11 @@ export async function POST(req) {
       });
     }
 
+    const isSuccess = ["success", "completed"].includes(completion.paymentStatus) || isReqSuccess;
+
     return NextResponse.json({
       success: true,
-      verified: completion.paymentStatus === "success",
+      verified: isSuccess,
       amount: completion.amount,
       paymentStatus: completion.paymentStatus,
       completedAt: completion.completedAt,

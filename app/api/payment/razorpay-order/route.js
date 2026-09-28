@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { verifyPaymentToken } from "../token.js";
+import clientPromise from "../../../../lib/db/mongodb.js";
 
 export async function POST(req) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "INVALID_TOKEN", message: "Token is invalid or has expired." }, { status: 400 });
     }
 
-    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
     if (!keyId || !keySecret) {
@@ -28,6 +29,8 @@ export async function POST(req) {
 
     // Create Razorpay Order (amount in paise: INR * 100)
     const amountInPaise = Math.round(Number(payload.amount) * 100);
+    const receiptId = String(payload.depositSessionId || "").slice(0, 40);
+
     const response = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
@@ -36,8 +39,8 @@ export async function POST(req) {
       },
       body: JSON.stringify({
         amount: amountInPaise,
-        currency: "INR",
-        receipt: payload.depositSessionId,
+        currency: payload.currency || "INR",
+        receipt: receiptId,
       }),
       signal: AbortSignal.timeout(5000),
     });
@@ -52,6 +55,19 @@ export async function POST(req) {
     }
 
     const order = await response.json();
+
+    // Link Razorpay Order ID with PaymentRequest in MongoDB
+    try {
+      const client = await clientPromise;
+      const db = client.db();
+      await db.collection("PaymentRequest").updateOne(
+        { depositSessionId: payload.depositSessionId },
+        { $set: { razorpayOrderId: order.id, updatedAt: new Date() } }
+      );
+    } catch (dbErr) {
+      console.warn("Failed to link razorpayOrderId to PaymentRequest:", dbErr);
+    }
+
     return NextResponse.json({
       success: true,
       id: order.id,

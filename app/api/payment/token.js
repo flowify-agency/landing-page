@@ -26,7 +26,10 @@ export function verifyPaymentToken(token) {
       .update(payloadString)
       .digest("hex");
 
-    if (signature !== expectedSignature) {
+    const sigBuf = Buffer.from(signature, "hex");
+    const expBuf = Buffer.from(expectedSignature, "hex");
+
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
       throw new Error("Signature verification failed");
     }
 

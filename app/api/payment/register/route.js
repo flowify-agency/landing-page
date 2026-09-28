@@ -4,11 +4,29 @@ import { signPaymentToken } from "../token.js";
 import clientPromise from "../../../../lib/db/mongodb.js";
 
 const FLOWIFY_SHARED_SECRET = process.env.FLOWIFY_SHARED_SECRET || "flowify-shared-secret-key-change-this-in-prod";
+if (process.env.NODE_ENV === "production" && FLOWIFY_SHARED_SECRET === "flowify-shared-secret-key-change-this-in-prod") {
+  console.warn("CRITICAL SECURITY WARNING: FLOWIFY_SHARED_SECRET is using default placeholder in production!");
+}
 
 export async function POST(req) {
   try {
     const body = await req.json();
     const { clientId, amount, depositSessionId, email, callbackUrl, signature, userName, userId, userBalance, isMandate, subscriptionPlan } = body;
+
+    const numericAmount = Number(amount);
+    if (!numericAmount || isNaN(numericAmount) || numericAmount < 1 || !isFinite(numericAmount)) {
+      return NextResponse.json(
+        { error: "VALIDATION", message: "Amount must be a valid positive number." },
+        { status: 400 }
+      );
+    }
+
+    if (!callbackUrl || typeof callbackUrl !== "string") {
+      return NextResponse.json(
+        { error: "VALIDATION", message: "A valid callbackUrl is required." },
+        { status: 400 }
+      );
+    }
 
     // Validate signature
     const signaturePayload = `${clientId}|${depositSessionId}|${amount}|${email}`;

@@ -107,6 +107,10 @@ export default function CheckoutPage({ params }) {
       if (paymentDetails?.callbackUrl) {
         // Support relative, localhost, and full tunnel URLs reliably
         const redirectUrl = new URL(paymentDetails.callbackUrl, window.location.origin);
+        // Ensure safe protocol
+        if (!["http:", "https:"].includes(redirectUrl.protocol)) {
+          throw new Error("Invalid redirect protocol");
+        }
         redirectUrl.searchParams.set("status", outcome);
         if (paymentDetails.depositSessionId) {
           redirectUrl.searchParams.set("sessionId", paymentDetails.depositSessionId);
@@ -127,7 +131,7 @@ export default function CheckoutPage({ params }) {
       console.error("Redirect URL creation failed:", e);
     }
 
-    if (paymentDetails?.callbackUrl) {
+    if (paymentDetails?.callbackUrl && /^https?:\/\//i.test(paymentDetails.callbackUrl)) {
       window.location.href = paymentDetails.callbackUrl;
     } else {
       window.history.back();
@@ -157,11 +161,10 @@ export default function CheckoutPage({ params }) {
     } else {
       setStatus("failed");
       setButtonState("idle");
-      return;
     }
 
     // 1. Fire-and-forget notification to Flowify backend with keepalive
-    // This runs completely in background and NEVER blocks user redirection!
+    // This runs completely in background and informs backend even on failure
     try {
       fetch("/api/payment/complete", {
         method: "POST",
@@ -176,9 +179,13 @@ export default function CheckoutPage({ params }) {
     }
 
     // 2. Smooth timed redirect so the user sees the confirmation card & confetti
-    setTimeout(() => {
-      performRedirect(outcome);
-    }, 1800);
+    if (outcome === "success") {
+      setTimeout(() => {
+        performRedirect(outcome);
+      }, 1800);
+    } else {
+      setLoading(false);
+    }
   };
 
   const handleRealPayment = async () => {
