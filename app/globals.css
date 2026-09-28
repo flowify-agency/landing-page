@@ -1,6 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'GoogleSansFlex';
+  src: url('/GoogleSansFlex.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal italic;
+  font-display: block;
+}
+
 /* ==========================================
    1. DESIGN SYSTEM VARIABLES & THEMES
    ========================================== */
@@ -121,69 +129,60 @@
 /* ==========================================
    2. SYSTEM RESET & BASICS
    ========================================== */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
 
-html {
-  scroll-behavior: smooth;
-  text-size-adjust: 100%;
-}
+  html {
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
+  }
 
-body {
-  background-color: var(--color-bg);
-  color: var(--color-text-primary);
-  font-family: var(--font-body);
-  font-size: var(--font-size-body);
-  line-height: var(--line-height-body);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
-  transition: background-color var(--transition-normal), color var(--transition-normal);
-}
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: var(--font-body);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    transition: background-color var(--transition-normal), color var(--transition-normal);
+  }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-  font-weight: 800;
-  line-height: var(--line-height-heading);
-  letter-spacing: -0.03em;
-  color: var(--color-text-primary);
-}
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    line-height: var(--line-height-heading);
+    letter-spacing: -0.03em;
+    color: var(--color-text-primary);
+  }
 
-.editorial-serif {
-  font-family: var(--font-heading-serif);
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-}
+  p {
+    color: var(--color-text-secondary);
+    text-wrap: pretty;
+  }
 
-p {
-  color: var(--color-text-secondary);
-  text-wrap: pretty;
-}
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
 
-a {
-  text-decoration: none;
-  color: inherit;
-}
+  button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+  }
 
-button, input, select, textarea {
-  font: inherit;
-  color: inherit;
-  background: transparent;
-  border: none;
-}
+  button {
+    cursor: pointer;
+  }
 
-button {
-  cursor: pointer;
-}
-
-/* Focus Rings */
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 4px;
+  /* Focus Rings */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 4px;
+  }
 }
 
 /* Custom Scrollbars */
@@ -457,5 +456,90 @@ section::after {
 .razorpay-container *,
 iframe[src*="razorpay"] {
   color-scheme: light !important;
+}
+
+/* ==========================================
+   7. LOGO LOADER ANIMATION
+   ========================================== */
+@keyframes shinySweep {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.loader-slate-white {
+  display: inline-block;
+  font-family: 'GoogleSansFlex', sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.05em;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  background-image: linear-gradient(120deg, #3f3f46 35%, #71717a 45%, #ffffff 50%, #71717a 55%, #3f3f46 65%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shinySweep 4s infinite linear;
+  will-change: background-position;
+  transform: translateZ(0);
+}
+
+.loader-ghost-white {
+  display: inline-block;
+  font-family: 'GoogleSansFlex', sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.05em;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  background-image: linear-gradient(120deg, rgba(113, 113, 122, 0.12) 38%, rgba(113, 113, 122, 0.12) 44%, rgba(255, 255, 255, 0.4) 47%, rgba(255, 255, 255, 0.45) 48%, rgba(255, 255, 255, 0.4) 49%, rgba(113, 113, 122, 0.12) 52%, rgba(113, 113, 122, 0.12) 58%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shinySweep 4s infinite linear;
+  will-change: background-position;
+  transform: translateZ(0);
+}
+
+/* ==========================================
+   8. CHECKOUT BUTTON TRANSITION KEYFRAMES
+   ========================================== */
+@keyframes iconPop {
+  0% {
+    transform: scale(0.3) rotate(-30deg);
+    opacity: 0;
+  }
+  65% {
+    transform: scale(1.25) rotate(6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes spinIn {
+  0% {
+    transform: scale(0.4) rotate(-180deg);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.animate-icon-pop {
+  animation: iconPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-spin-in {
+  animation: spinIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 

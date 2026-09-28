@@ -1,0 +1,286 @@
+# Prompt: Update Win & Spin (lets-go-gambling) Payment Flow — Send User Details + Verify via Shared MongoDB
+
+## Context
+
+We have two Next.js apps:
+
+1. **Win & Spin** (gambling app) — runs on port `9000`, MongoDB: `mongodb://localhost:27017/nextmillionaire`
+2. **Flowify Payment Gateway** (landing-page) — runs on port `9500`, MongoDB: `mongodb://localhost:27017/flowify-payments`
+
+The **Flowify gateway** has a shared MongoDB (`flowify-payments`) with two collections:
+- **`PaymentRequest`** — created when a payment is registered. Schema:
+  ```json
+  {
+    "clientId": "lets-go-gambling",
+    "amount": 500,
+    "depositSessionId": "uuid-string",
+    "email": "user@example.com",
+    "callbackUrl": "http://localhost:9000/deposit/callback",
+    "checkoutUrl": "https://gateway.example.com/checkout/token...",
+    "status": "registered",   // → becomes "completed" or "failed" after payment
+    "createdAt": "2026-06-26T...",
+    "updatedAt": "2026-06-26T..."  // added when status changes
+  }
+  ```
+- **`PaymentCompletion`** — created when payment finishes (success or fail). Schema:
+  ```json
+  {
+    "clientId": "lets-go-gambling",
+    "depositSessionId": "uuid-string",
+    "amount": 500,
+    "email": "user@example.com",
+    "callbackUrl": "http://localhost:9000/deposit/callback",
+    "paymentStatus": "success",    // or "failed"
+    "webhookUrl": "http://localhost:9000/api/deposit/webhook",
+    "webhookSuccess": true,
+    "webhookStatusCode": 200,
+    "webhookResult": { ... },
+    "completedAt": "2026-06-26T..."
+  }
+  ```
+
+---
+
+## What Needs to Change
+
+### 1. Send Additional User Details When Creating a Payment
+
+**File:** `app/api/deposit/create-order/route.js`
+
+Currently the gambling app sends this payload to the Flowify gateway:
+```js
+const payload = {
+  clientId: process.env.FLOWIFY_CLIENT_ID || "lets-go-gambling",
+  amount: Number(amount),
+  depositSessionId: depositSessionId,
+  email: user.email,
+  callbackUrl: process.env.NEXT_PUBLIC_FLOWIFY_CALLBACK_URL || "http://localhost:9000/deposit/callback",
+};
+```
+
+**Update it** to also include these user details so the gateway can log them:
+- `userName` — the user's name (`user.name`)
+- `userId` — the user's ID (`user.id`)
+- `userBalance` — current wallet balance (`user.balanceBR`)
+
+The `user` object (from `getSessionUser()`) already has all these fields:
+- `user.id` (mapped from `user._id`)
+- `user.name`
+- `user.email`
+- `user.balanceBR` (wallet balance)
+
+Add these three new fields to the payload object. **Do NOT change the HMAC signature calculation** — the signature is only for `clientId|depositSessionId|amount|email` and must stay the same (the gateway verifies against that exact format).
+
+Also store these extra fields in the local `DepositSession` document for record-keeping.
+
+---
+
+### 2. Add a Second MongoDB Connection to Flowify's Database
+
+The gambling app needs to connect to the **Flowify gateway's MongoDB** (`flowify-payments`) to cross-verify payments after the user is redirected back.
+
+**Create a new file:** `lib/db/flowifyMongo.js`
+
+```js
+import { MongoClient } from "mongodb";
+
+const uri = process.env.FLOWIFY_DB_URL;
+
+if (!uri) {
+  console.warn("FLOWIFY_DB_URL not set — payment cross-verification disabled");
+}
+
+let client;
+let clientPromise;
+
+if (uri) {
+  if (process.env.NODE_ENV === "development") {
+    if (!global._flowifyMongoClientPromise) {
+      client = new MongoClient(uri);
+      global._flowifyMongoClientPromise = client.connect();
+    }
+    clientPromise = global._flowifyMongoClientPromise;
+  } else {
+    client = new MongoClient(uri);
+    clientPromise = client.connect();
+  }
+}
+
+export default clientPromise;
+```
+
+**Add to `.env` file:**
+```
+FLOWIFY_DB_URL="mongodb://localhost:27017/flowify-payments?directConnection=true"
+```
+
+---
+
+### 3. Cross-Verify Payment on the Callback Page
+
+**File:** `app/deposit/callback/page.js`
+
+Currently the callback page just reads `status`, `sessionId`, and `amount` from URL params and shows success/fail. **It blindly trusts the URL parameters.**
+
+Add a **server-side verification step**. Create a new API route:
+
+**New file:** `app/api/deposit/verify/route.js`
+
+This route:
+1. Takes `{ depositSessionId }` in the POST body
+2. Requires the user to be authenticated (use `getSessionUser`)
+3. Connects to the **Flowify gateway's MongoDB** using the new `flowifyMongo.js` client
+4. Looks up the `PaymentCompletion` collection for a document matching the `depositSessionId`
+5. Also looks up the `PaymentRequest` collection for the matching request
+6. Cross-verifies:
+   - The `depositSessionId` matches
+   - The `amount` matches what was in our local `DepositSession`
+   - The `paymentStatus` is `"success"`
+   - The `clientId` matches our `FLOWIFY_CLIENT_ID`
+7. Returns `{ verified: true, amount, paymentStatus }` or `{ verified: false, reason: "..." }`
+
+```js
+import { NextResponse } from "next/server";
+import clientPromise from "@/lib/db/mongodb.js";
+import flowifyClientPromise from "@/lib/db/flowifyMongo.js";
+import { getSessionUser } from "@/lib/user/auth.js";
+
+export async function POST(req) {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+
+    const { depositSessionId } = await req.json();
+    if (!depositSessionId) {
+      return NextResponse.json({ error: "VALIDATION", message: "depositSessionId is required." }, { status: 400 });
+    }
+
+    // 1. Get our local deposit session
+    const localClient = await clientPromise;
+    const localDb = localClient.db();
+    const session = await localDb.collection("DepositSession").findOne({ _id: depositSessionId });
+
+    if (!session) {
+      return NextResponse.json({ verified: false, reason: "Deposit session not found locally." });
+    }
+
+    // Verify the session belongs to this user
+    if (session.userId !== user.id) {
+      return NextResponse.json({ verified: false, reason: "Session does not belong to this user." });
+    }
+
+    // 2. Check Flowify gateway's MongoDB
+    if (!flowifyClientPromise) {
+      // If Flowify DB is not configured, fall back to trusting the webhook
+      return NextResponse.json({
+        verified: session.status === "success",
+        amount: session.amount,
+        paymentStatus: session.status,
+        source: "local-only",
+      });
+    }
+
+    const flowifyClient = await flowifyClientPromise;
+    const flowifyDb = flowifyClient.db();
+
+    // Look up the completion record
+    const completion = await flowifyDb.collection("PaymentCompletion").findOne({ depositSessionId });
+    
+    // Look up the request record
+    const request = await flowifyDb.collection("PaymentRequest").findOne({ depositSessionId });
+
+    if (!completion) {
+      return NextResponse.json({
+        verified: false,
+        reason: "No payment completion record found in gateway.",
+        localStatus: session.status,
+      });
+    }
+
+    // 3. Cross-verify all fields
+    const clientId = process.env.FLOWIFY_CLIENT_ID || "lets-go-gambling";
+    const issues = [];
+
+    if (completion.clientId !== clientId) {
+      issues.push(`Client ID mismatch: expected "${clientId}", got "${completion.clientId}"`);
+    }
+    if (completion.amount !== session.amount) {
+      issues.push(`Amount mismatch: local=${session.amount}, gateway=${completion.amount}`);
+    }
+    if (completion.paymentStatus !== "success") {
+      issues.push(`Gateway payment status is "${completion.paymentStatus}", not "success"`);
+    }
+
+    return NextResponse.json({
+      verified: issues.length === 0 && completion.paymentStatus === "success",
+      amount: completion.amount,
+      paymentStatus: completion.paymentStatus,
+      issues: issues.length > 0 ? issues : undefined,
+      gatewayRecord: {
+        completedAt: completion.completedAt,
+        webhookSuccess: completion.webhookSuccess,
+      },
+      requestRecord: request ? {
+        status: request.status,
+        createdAt: request.createdAt,
+      } : null,
+    });
+  } catch (err) {
+    console.error("Payment verification error:", err);
+    return NextResponse.json({ error: "INTERNAL", message: "Verification failed." }, { status: 500 });
+  }
+}
+```
+
+---
+
+### 4. Update the Callback Page to Call the Verify API
+
+**File:** `app/deposit/callback/page.js`
+
+After the page loads and reads the URL params, call `/api/deposit/verify` with the `sessionId` to cross-verify:
+
+```js
+const [verifyResult, setVerifyResult] = useState(null);
+
+useEffect(() => {
+  if (sessionId && status === "success") {
+    fetch("/api/deposit/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ depositSessionId: sessionId }),
+    })
+      .then((res) => res.json())
+      .then((data) => setVerifyResult(data))
+      .catch((err) => console.error("Verify error:", err));
+  }
+}, [sessionId, status]);
+```
+
+Show a small verification badge on the success screen — e.g., a ✓ "Payment verified" or ⚠ "Verification pending" indicator below the amount.
+
+---
+
+### 5. Update the Gateway's Register Route to Accept Extra Fields
+
+**This is on the Flowify landing-page side (I'll handle this myself).** The gateway's `/api/payment/register` route needs to accept and store `userName`, `userId`, and `userBalance` in the `PaymentRequest` collection. I'll update it separately.
+
+---
+
+## Summary of Files to Change
+
+| File | Action |
+|------|--------|
+| `.env` | Add `FLOWIFY_DB_URL="mongodb://localhost:27017/flowify-payments?directConnection=true"` |
+| `lib/db/flowifyMongo.js` | **NEW** — Second MongoDB client for Flowify's database |
+| `app/api/deposit/create-order/route.js` | Add `userName`, `userId`, `userBalance` to payload + DepositSession doc |
+| `app/api/deposit/verify/route.js` | **NEW** — Cross-verify payment against Flowify's MongoDB |
+| `app/deposit/callback/page.js` | Call `/api/deposit/verify` on success and show verification status |
+
+## Important Notes
+- **Do NOT change the HMAC signature format.** It must stay as `clientId|depositSessionId|amount|email`.
+- **Do NOT modify the webhook handler** (`app/api/deposit/webhook/route.js`) — it already works correctly.
+- The Flowify gateway MongoDB is at `mongodb://localhost:27017/flowify-payments` — it's a **separate database** from the gambling app's `nextmillionaire` database, but on the same MongoDB instance.
+- Use Tailwind CSS classes for any UI changes (no vanilla CSS).

@@ -1,0 +1,85 @@
+import { NextResponse } from "next/server";
+import crypto from "crypto";
+import { signPaymentToken } from "../token.js";
+import clientPromise from "../../../../lib/db/mongodb.js";
+
+const FLOWIFY_SHARED_SECRET = process.env.FLOWIFY_SHARED_SECRET || "flowify-shared-secret-key-change-this-in-prod";
+
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    const { clientId, amount, depositSessionId, email, callbackUrl, signature, userName, userId, userBalance, isMandate, subscriptionPlan } = body;
+
+    // Validate signature
+    const signaturePayload = `${clientId}|${depositSessionId}|${amount}|${email}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", FLOWIFY_SHARED_SECRET)
+      .update(signaturePayload)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      console.error("Invalid signature on register request:", { signature, expectedSignature });
+      return NextResponse.json(
+        { error: "UNAUTHORIZED", message: "Invalid signature verification." },
+        { status: 401 }
+      );
+    }
+
+    // Generate stateless token
+    const token = signPaymentToken({
+      clientId,
+      amount,
+      depositSessionId,
+      email,
+      callbackUrl,
+      isMandate: !!isMandate,
+      subscriptionPlan: subscriptionPlan || null,
+    });
+
+    // Determine public site URL / host
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    let checkoutUrl;
+    if (siteUrl && siteUrl.startsWith("http")) {
+      checkoutUrl = `${siteUrl.replace(/\/$/, "")}/checkout/${token}`;
+    } else {
+      const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:9500";
+      const protocol = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+      checkoutUrl = `${protocol}://${host}/checkout/${token}`;
+    }
+
+    // Log payment request to MongoDB
+    try {
+      const client = await clientPromise;
+      const db = client.db();
+      await db.collection("PaymentRequest").insertOne({
+        clientId,
+        amount: Number(amount),
+        depositSessionId,
+        email,
+        callbackUrl,
+        checkoutUrl,
+        status: "registered",
+        isMandate: !!isMandate,
+        subscriptionPlan: subscriptionPlan || null,
+        createdAt: new Date(),
+        ...(userName && { userName }),
+        ...(userId && { userId }),
+        ...(userBalance !== undefined && { userBalance: Number(userBalance) }),
+      });
+    } catch (dbErr) {
+      console.error("Failed to log payment request to MongoDB:", dbErr);
+      // Don't fail the request if DB logging fails
+    }
+
+    return NextResponse.json({
+      success: true,
+      checkoutUrl,
+    });
+  } catch (err) {
+    console.error("Error in Flowify payment register:", err);
+    return NextResponse.json(
+      { error: "INTERNAL_ERROR", message: "Failed to register payment request." },
+      { status: 500 }
+    );
+  }
+}
