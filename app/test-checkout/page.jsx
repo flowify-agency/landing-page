@@ -104,38 +104,70 @@ export default function CheckoutTestPage() {
         </div>
 
         {/* Merchant & Order Details */}
-        <div className="bg-slate-50/90 border border-slate-100 rounded-2xl p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div>
-                <div className="flex items-center gap-1">
-                  <p className="text-xs font-bold text-slate-900 leading-tight">Win & Spin</p>
-                  <img 
-                    src="https://png.pngtree.com/png-vector/20230408/ourmid/pngtree-instagram-bule-tick-insta-blue-star-vector-png-image_6695210.png" 
-                    alt="Verified" 
-                    className="w-3.5 h-3.5 object-contain inline-block shrink-0"
-                  />
+        {state === "skeleton" ? (
+          <div className="bg-slate-50/90 border border-slate-100 rounded-2xl p-4 flex flex-col gap-3 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    {/* Name Skeleton */}
+                    <div className="h-3.5 w-24 bg-slate-200/80 rounded" />
+                    {/* Verified Tick Skeleton */}
+                    <div className="w-3.5 h-3.5 rounded-full bg-slate-200/70 shrink-0" />
+                  </div>
+                  {/* Subtitle Skeleton */}
+                  <div className="h-2.5 w-16 bg-slate-200/60 rounded" />
                 </div>
-                <p className="text-[10px] text-slate-500 font-medium">Verified Merchant</p>
+              </div>
+              {/* Verified Pill Skeleton */}
+              <div className="h-5 w-16 bg-slate-200/60 rounded-full" />
+            </div>
+
+            <div className="border-t border-slate-200/60 pt-2.5 flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <div className="h-3 w-14 bg-slate-200/60 rounded" />
+                <div className="h-3 w-32 bg-slate-200/80 rounded" />
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="h-3 w-14 bg-slate-200/60 rounded" />
+                <div className="h-3 w-28 bg-slate-200/60 rounded" />
               </div>
             </div>
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#138cd7] px-2 py-0.5 rounded-full">
-              <Check className="w-3 h-3 stroke-[3]" />
-              Verified
-            </span>
           </div>
+        ) : (
+          <div className="bg-slate-50/90 border border-slate-100 rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-bold text-slate-900 leading-tight">Win & Spin</p>
+                    <img 
+                      src="https://png.pngtree.com/png-vector/20230408/ourmid/pngtree-instagram-bule-tick-insta-blue-star-vector-png-image_6695210.png" 
+                      alt="Verified" 
+                      className="w-3.5 h-3.5 object-contain inline-block shrink-0"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-medium">Verified Merchant</p>
+                </div>
+              </div>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#138cd7] px-2 py-0.5 rounded-full">
+                <Check className="w-3 h-3 stroke-[3]" />
+                Verified
+              </span>
+            </div>
 
-          <div className="border-t border-slate-200/60 pt-2.5 flex flex-col gap-1.5 text-xs text-slate-500">
-            <div className="flex justify-between items-center">
-              <span>Account</span>
-              <span className="font-medium text-slate-700 font-mono truncate max-w-[190px]">{sampleData.email}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span>Order ID</span>
-              <span className="font-mono text-slate-400 text-[11px] truncate max-w-[150px]">{sampleData.depositSessionId}</span>
+            <div className="border-t border-slate-200/60 pt-2.5 flex flex-col gap-1.5 text-xs text-slate-500">
+              <div className="flex justify-between items-center">
+                <span>Account</span>
+                <span className="font-medium text-slate-700 font-mono truncate max-w-[190px]">{sampleData.email}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Order ID</span>
+                <span className="font-mono text-slate-400 text-[11px] truncate max-w-[150px]">{sampleData.depositSessionId}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* ── STATE A: ERROR ── */}
         {state === "error" && (
@@ -281,6 +313,27 @@ export default function CheckoutTestPage() {
           </>
         )}
 
+        {/* ── STATE SKELETON: INITIAL LOAD ── */}
+        {state === "skeleton" && (
+          <>
+            {/* Total Payable Skeleton */}
+            <div className="flex flex-col items-center justify-center py-2 bg-gradient-to-b from-slate-50/50 to-white border border-slate-100 rounded-2xl p-4">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">Total Payable</span>
+              <div className="h-9 w-28 bg-slate-200/80 rounded-lg animate-pulse my-1" />
+            </div>
+
+            {/* Actions Skeleton */}
+            <div className="flex flex-col gap-2.5 pt-1">
+              <div className="w-full h-12 rounded-2xl bg-slate-100/90 border border-slate-200/60 animate-pulse flex items-center justify-center">
+                <div className="h-4 w-20 bg-slate-200/80 rounded-md" />
+              </div>
+              <div className="w-full h-9 flex items-center justify-center">
+                <span className="text-xs text-slate-400 font-medium">Loading session details...</span>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* ── STATE D: NORMAL CHECKOUT (IDLE / BUTTON ANIMATIONS) ── */}
         {state === "idle" && (
           <>
@@ -365,6 +418,19 @@ export default function CheckoutTestPage() {
         {/* Action controls */}
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={() => {
+              setCurrentViewStatus("skeleton");
+              setButtonState("idle");
+              setTimeout(() => {
+                setCurrentViewStatus("idle");
+              }, 2000);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95"
+          >
+            <span>🦴 Test Initial Load (2s)</span>
+          </button>
+
+          <button
             onClick={runSimulation}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/25 transition-all cursor-pointer active:scale-95"
           >
@@ -404,6 +470,16 @@ export default function CheckoutTestPage() {
         >
           <LayoutGrid className="w-3.5 h-3.5" />
           <span>Side-by-Side Grid</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("skeleton")}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "skeleton" 
+              ? "bg-slate-900 text-white shadow-md" 
+              : "bg-white/80 hover:bg-white text-slate-600 border border-slate-200/60"
+          }`}
+        >
+          🦴 0. Skeleton Loader
         </button>
         <button
           onClick={() => setActiveTab("idle")}
@@ -495,6 +571,7 @@ export default function CheckoutTestPage() {
         {/* 2. Side by side Grid Mode */}
         {activeTab === "grid" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full">
+            <CheckoutCardWrapper state="skeleton" title="0. Initial Skeleton Loader" />
             <CheckoutCardWrapper state="idle" btnState="idle" title="1. Normal Idle State" />
             <CheckoutCardWrapper state="idle" btnState="loading" title="2. Loading Spinner State" />
             <CheckoutCardWrapper state="success" title="3. Payment Confirmed (Success Card)" />
@@ -504,6 +581,10 @@ export default function CheckoutTestPage() {
         )}
 
         {/* 3. Individual State Previews */}
+        {activeTab === "skeleton" && (
+          <CheckoutCardWrapper state="skeleton" title="State: Initial Skeleton Loader (Data Loading)" />
+        )}
+
         {activeTab === "idle" && (
           <CheckoutCardWrapper state="idle" btnState="idle" title="State: Normal Idle Checkout" />
         )}

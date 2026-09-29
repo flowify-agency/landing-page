@@ -17,13 +17,13 @@ export async function POST(req) {
       return NextResponse.json({ error: "INVALID_TOKEN", message: "Token is invalid or has expired." }, { status: 400 });
     }
 
-    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keyId = payload.gatewayAccount?.keyId;
+    const keySecret = payload.gatewayAccount?.keySecret;
 
     if (!keyId || !keySecret) {
       return NextResponse.json(
-        { error: "CONFIG_ERROR", message: "Razorpay credentials are not configured on Flowify." },
-        { status: 500 }
+        { error: "CONFIG_ERROR", message: "Razorpay credentials were not provided in the payment session." },
+        { status: 400 }
       );
     }
 
@@ -49,7 +49,7 @@ export async function POST(req) {
       const errorText = await response.text();
       console.error("Razorpay API Error:", errorText);
       return NextResponse.json(
-        { error: "GATEWAY_ERROR", message: `Razorpay order creation failed: ${errorText}` },
+        { error: "GATEWAY_ERROR", message: "Sorry, we're having trouble connecting to the payment gateway right now. Please try again later." },
         { status: 502 }
       );
     }
@@ -75,6 +75,9 @@ export async function POST(req) {
     });
   } catch (err) {
     console.error("Razorpay order route error:", err);
-    return NextResponse.json({ error: "INTERNAL_ERROR", message: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "INTERNAL_ERROR", message: "Sorry, something went wrong while initiating the payment. Please try again later." },
+      { status: 500 }
+    );
   }
 }

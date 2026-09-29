@@ -13,6 +13,31 @@ import { Button } from "@/components/base/buttons/button";
 
 const VERIFIED_TICK_URL = "https://png.pngtree.com/png-vector/20230408/ourmid/pngtree-instagram-bule-tick-insta-blue-star-vector-png-image_6695210.png";
 
+function formatUserFriendlyError(rawMsg) {
+  if (!rawMsg) return "Sorry, we could not process this right now. Please try again later.";
+  const str = String(rawMsg);
+  const lower = str.toLowerCase();
+  if (
+    str.includes("{") ||
+    str.includes("}") ||
+    lower.includes("razorpay") ||
+    lower.includes("bad_request") ||
+    lower.includes("failed:") ||
+    lower.includes("authentication") ||
+    lower.includes("unauthorized") ||
+    str.includes("502") ||
+    str.includes("500") ||
+    lower.includes("gateway") ||
+    lower.includes("syntaxerror") ||
+    lower.includes("typeerror") ||
+    lower.includes("internal_error") ||
+    lower.includes("gateway_error")
+  ) {
+    return "Sorry, we're having trouble connecting to the payment gateway right now. Please try again later.";
+  }
+  return str;
+}
+
 export default function CheckoutPage({ params }) {
   const { token } = use(params);
   const [loading, setLoading] = useState(false);
@@ -83,7 +108,7 @@ export default function CheckoutPage({ params }) {
     try {
       const colors = ["#00b05b", "#10b981", "#34d399", "#fbbf24", "#ffffff"];
       confetti({
-        particleCount: 35,
+        particleCount: 350,
         spread: 60,
         origin: { y: 0.7 },
         colors: colors,
@@ -243,7 +268,7 @@ export default function CheckoutPage({ params }) {
       rzp.open();
     } catch (err) {
       console.error("Razorpay Checkout Error:", err);
-      setErrorMessage(err.message || "Could not launch Razorpay Checkout gateway.");
+      setErrorMessage(formatUserFriendlyError(err.message));
       setStatus("error");
       setLoading(false);
       setButtonState("idle");
@@ -302,9 +327,9 @@ export default function CheckoutPage({ params }) {
           </div>
         </div>
 
-        {/* Merchant & Order Details */}
-        {paymentDetails && (
-          <div className="bg-slate-50/90 border border-slate-100 rounded-2xl p-4 flex flex-col gap-3">
+        {/* Merchant & Order Details (Loaded vs Skeleton) */}
+        {paymentDetails ? (
+          <div className="bg-slate-50/90 border border-slate-100 rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div>
@@ -336,7 +361,38 @@ export default function CheckoutPage({ params }) {
               </div>
             </div>
           </div>
-        )}
+        ) : status !== "error" ? (
+          /* Merchant & Order Details Skeleton */
+          <div className="bg-slate-50/90 border border-slate-100 rounded-2xl p-4 flex flex-col gap-3 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    {/* Name Skeleton */}
+                    <div className="h-3.5 w-24 bg-slate-200/80 rounded" />
+                    {/* Verified Tick Skeleton */}
+                    <div className="w-3.5 h-3.5 rounded-full bg-slate-200/70 shrink-0" />
+                  </div>
+                  {/* Subtitle Skeleton */}
+                  <div className="h-2.5 w-16 bg-slate-200/60 rounded" />
+                </div>
+              </div>
+              {/* Verified Pill Skeleton */}
+              <div className="h-5 w-16 bg-slate-200/60 rounded-full" />
+            </div>
+
+            <div className="border-t border-slate-200/60 pt-2.5 flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <div className="h-3 w-14 bg-slate-200/60 rounded" />
+                <div className="h-3 w-32 bg-slate-200/80 rounded" />
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="h-3 w-14 bg-slate-200/60 rounded" />
+                <div className="h-3 w-28 bg-slate-200/60 rounded" />
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* ── STATE 1: ERROR STATE ── */}
         {status === "error" && (
@@ -349,8 +405,8 @@ export default function CheckoutPage({ params }) {
               />
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Unable to Process</h3>
-                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                  {errorMessage || "Payment link is invalid or expired. Please restart from Win & Spin."}
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-[280px]">
+                  {formatUserFriendlyError(errorMessage)}
                 </p>
               </div>
             </div>
@@ -481,14 +537,18 @@ export default function CheckoutPage({ params }) {
             {/* Total Payable Box */}
             <div className="flex flex-col items-center justify-center py-2 bg-gradient-to-b from-slate-50/50 to-white border border-slate-100 rounded-2xl p-4">
               <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">Total Payable</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                  ₹{Number(paymentDetails?.amount || 0).toLocaleString("en-IN")}
-                </span>
-                <span className="text-xs font-bold text-slate-400 uppercase">INR</span>
-              </div>
+              {paymentDetails ? (
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                    ₹{Number(paymentDetails.amount || 0).toLocaleString("en-IN")}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400 uppercase">INR</span>
+                </div>
+              ) : (
+                <div className="h-9 w-28 bg-slate-200/80 rounded-lg animate-pulse my-1" />
+              )}
               {paymentDetails?.isMandate && (
-                <span className="mt-1 text-[10px] font-bold  px-2 py-0.5 rounded-full">
+                <span className="mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full">
                   VIP Subscription Recharge
                 </span>
               )}
@@ -496,35 +556,41 @@ export default function CheckoutPage({ params }) {
 
             {/* Actions */}
             <div className="flex flex-col gap-2.5 pt-1">
-              <Button
-                onClick={handleRealPayment}
-                disabled={!isScriptLoaded || buttonState === "loading" || buttonState === "success"}
-                isLoading={buttonState === "loading"}
-                isSuccess={buttonState === "success"}
-                showTextWhileLoading
-                color="primary"
-                size="xl"
-                iconTrailing={ArrowRight}
-                className={`w-full h-12 rounded-2xl text-[14px] font-extrabold shadow-lg transition-all duration-500 ${
-                  buttonState === "success"
-                    ? "!bg-emerald-600 !shadow-emerald-500/40 ring-4 ring-emerald-500/25 scale-[1.01]"
-                    : buttonState === "loading"
-                    ? "opacity-95 cursor-wait"
-                    : "hover:shadow-emerald-500/35 active:scale-[0.99]"
-                }`}
-              >
-                {buttonState === "success" ? (
-                  <span>Payment Successful!</span>
-                ) : buttonState === "loading" ? (
-                  <span></span>
-                ) : (
-                  <span>Pay</span>
-                )}
-              </Button>
+              {paymentDetails ? (
+                <Button
+                  onClick={handleRealPayment}
+                  disabled={!isScriptLoaded || buttonState === "loading" || buttonState === "success"}
+                  isLoading={buttonState === "loading"}
+                  isSuccess={buttonState === "success"}
+                  showTextWhileLoading
+                  color="primary"
+                  size="xl"
+                  iconTrailing={ArrowRight}
+                  className={`w-full h-12 rounded-2xl text-[14px] font-extrabold shadow-lg transition-all duration-500 ${
+                    buttonState === "success"
+                      ? "!bg-emerald-600 !shadow-emerald-500/40 ring-4 ring-emerald-500/25 scale-[1.01]"
+                      : buttonState === "loading"
+                      ? "opacity-95 cursor-wait"
+                      : "hover:shadow-emerald-500/35 active:scale-[0.99]"
+                  }`}
+                >
+                  {buttonState === "success" ? (
+                    <span>Payment Successful!</span>
+                  ) : buttonState === "loading" ? (
+                    <span></span>
+                  ) : (
+                    <span>Pay</span>
+                  )}
+                </Button>
+              ) : (
+                <div className="w-full h-12 rounded-2xl bg-slate-100/90 border border-slate-200/60 animate-pulse flex items-center justify-center">
+                  <div className="h-4 w-20 bg-slate-200/80 rounded-md" />
+                </div>
+              )}
 
               <button
                 onClick={() => setStatus("failed")}
-                disabled={loading || buttonState === "loading"}
+                disabled={loading || buttonState === "loading" || !paymentDetails}
                 className="w-full h-9 text-slate-400 hover:text-slate-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />

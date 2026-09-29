@@ -59,17 +59,24 @@ export async function POST(req) {
           razorpayPaymentId 
         });
       } else {
-        const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-        const keySecret = process.env.RAZORPAY_KEY_SECRET;
+        const keyId = payload.gatewayAccount?.keyId;
+        const keySecret = payload.gatewayAccount?.keySecret;
 
-        if (keyId && keySecret) {
-          try {
-            const rzpResponse = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}`, {
-              headers: {
-                Authorization: "Basic " + Buffer.from(`${keyId}:${keySecret}`).toString("base64"),
-              },
-              signal: AbortSignal.timeout(5000),
-            });
+        if (!keyId || !keySecret) {
+          logger.error("Gateway credentials missing in token during verification", { depositSessionId: payload.depositSessionId });
+          return NextResponse.json(
+            { error: "CONFIG_ERROR", message: "Gateway credentials were not provided in this payment session." },
+            { status: 400 }
+          );
+        }
+
+        try {
+          const rzpResponse = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}`, {
+            headers: {
+              Authorization: "Basic " + Buffer.from(`${keyId}:${keySecret}`).toString("base64"),
+            },
+            signal: AbortSignal.timeout(5000),
+          });
 
           if (!rzpResponse.ok) {
             const errText = await rzpResponse.text();
@@ -112,24 +119,24 @@ export async function POST(req) {
           );
         }
       }
-      }
     }
 
-    // Determine the webhook URL
-    let webhookUrl = process.env.WINSPIN_WEBHOOK_URL;
+    // Determine the webhook URL directly from the session (pure vessel)
+    let webhookUrl = payload.webhookUrl;
     if (!webhookUrl && payload.callbackUrl) {
       try {
         const url = new URL(payload.callbackUrl);
         webhookUrl = `${url.protocol}//${url.host}/api/deposit/webhook`;
       } catch (e) {
-        logger.error("Failed to parse callbackUrl", { error: e, callbackUrl: payload.callbackUrl });
+        logger.error("Failed to parse callbackUrl for webhook destination", { error: e, callbackUrl: payload.callbackUrl });
       }
     }
+
     if (!webhookUrl) {
-      logger.error("WINSPIN_WEBHOOK_URL is not set and no callbackUrl could be parsed");
+      logger.error("No webhookUrl provided in payment session", { depositSessionId: payload.depositSessionId });
       return NextResponse.json(
-        { error: "CONFIG_ERROR", message: "Payment webhook URL is not configured." },
-        { status: 500 }
+        { error: "CONFIG_ERROR", message: "Payment webhook URL was not provided in this session." },
+        { status: 400 }
       );
     }
 
@@ -162,7 +169,8 @@ export async function POST(req) {
           amount: Number(payload.amount),
           status,
           signature,
-          razorpayPaymentId: razorpayPaymentId || null
+          razorpayPaymentId: razorpayPaymentId || null,
+          gatewayAccountId: payload.gatewayAccount?.id || null,
         }),
         signal: AbortSignal.timeout(8000),
       });
@@ -199,6 +207,8 @@ export async function POST(req) {
         callbackUrl: payload.callbackUrl,
         paymentStatus: status,
         razorpayPaymentId: razorpayPaymentId || null,
+        gatewayAccountId: payload.gatewayAccount?.id || "default",
+        gatewayAccount: payload.gatewayAccount || null,
         webhookUrl,
         webhookSuccess: response ? response.ok : false,
         webhookStatusCode: response ? response.status : 0,

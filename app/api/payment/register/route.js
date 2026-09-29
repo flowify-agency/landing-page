@@ -11,7 +11,7 @@ if (process.env.NODE_ENV === "production" && FLOWIFY_SHARED_SECRET === "flowify-
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { clientId, amount, depositSessionId, email, callbackUrl, signature, userName, userId, userBalance, isMandate, subscriptionPlan } = body;
+    const { clientId, amount, depositSessionId, email, callbackUrl, webhookUrl, merchantName, signature, userName, userId, userBalance, isMandate, subscriptionPlan, gatewayAccount } = body;
 
     const numericAmount = Number(amount);
     if (!numericAmount || isNaN(numericAmount) || numericAmount < 1 || !isFinite(numericAmount)) {
@@ -24,6 +24,20 @@ export async function POST(req) {
     if (!callbackUrl || typeof callbackUrl !== "string") {
       return NextResponse.json(
         { error: "VALIDATION", message: "A valid callbackUrl is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!webhookUrl || typeof webhookUrl !== "string") {
+      return NextResponse.json(
+        { error: "VALIDATION", message: "A valid webhookUrl is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!gatewayAccount || !gatewayAccount.keyId || !gatewayAccount.keySecret) {
+      return NextResponse.json(
+        { error: "VALIDATION", message: "gatewayAccount with keyId and keySecret is required from calling application." },
         { status: 400 }
       );
     }
@@ -43,15 +57,23 @@ export async function POST(req) {
       );
     }
 
-    // Generate stateless token
+    // Generate stateless token with dynamic gateway account credentials, callbackUrl and webhookUrl
     const token = signPaymentToken({
       clientId,
       amount,
       depositSessionId,
       email,
       callbackUrl,
+      webhookUrl,
+      merchantName: merchantName || "Win & Spin",
       isMandate: !!isMandate,
       subscriptionPlan: subscriptionPlan || null,
+      gatewayAccount: {
+        id: gatewayAccount.id,
+        name: gatewayAccount.name,
+        keyId: gatewayAccount.keyId,
+        keySecret: gatewayAccount.keySecret,
+      },
     });
 
     // Determine public site URL / host
@@ -75,10 +97,18 @@ export async function POST(req) {
         depositSessionId,
         email,
         callbackUrl,
+        webhookUrl,
+        merchantName: merchantName || "Win & Spin",
         checkoutUrl,
         status: "registered",
         isMandate: !!isMandate,
         subscriptionPlan: subscriptionPlan || null,
+        gatewayAccountId: gatewayAccount.id || "default",
+        gatewayAccount: {
+          id: gatewayAccount.id,
+          name: gatewayAccount.name,
+          keyId: gatewayAccount.keyId,
+        },
         createdAt: new Date(),
         ...(userName && { userName }),
         ...(userId && { userId }),
