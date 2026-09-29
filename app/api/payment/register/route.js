@@ -82,7 +82,7 @@ export async function POST(req) {
     if (siteUrl && siteUrl.startsWith("http")) {
       checkoutUrl = `${siteUrl.replace(/\/$/, "")}/checkout/${token}`;
     } else {
-      const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:9500";
+      const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "flowify.agency";
       const protocol = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
       checkoutUrl = `${protocol}://${host}/checkout/${token}`;
     }
