@@ -125,7 +125,7 @@ export default function TermsPage() {
               <br />
               <strong>Entity:</strong> Flowify Agency
               <br />
-              <strong>GSTIN:</strong> 27AAFCN8012E1ZS
+              {/* <strong>GSTIN:</strong> 27AAFCN8012E1ZS */}
             </p>
           </section>
         </div>

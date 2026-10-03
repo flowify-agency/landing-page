@@ -236,7 +236,7 @@ export const Footer = () => {
             © {currentYear} FLOWIFY AGENCY // ALL SYSTEMS RECONFIGURED.
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-            <span>GSTIN: 27AAFCN8012E1ZS</span>
+            {/* <span>GSTIN: 27AAFCN8012E1ZS</span> */}
             <span style={{ color: 'var(--color-accent)' }}>SECURE_SSL: TRUE</span>
             <span>BUILD: V1.0.8_RELEASE</span>
           </div>
