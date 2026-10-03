@@ -10,18 +10,18 @@ Instead of traditional, generic "AI slop" templates, this landing page is styled
 
 ### 1. Interactive Operations Cockpit (`Cockpit.tsx`)
 * An interactive systems blueprint visualizer displaying flow convergence pipelines.
-* Supports **Friction vs. Flow** state toggling, manual lead injection, and system reboots.
+* Supports **Friction vs. Flow** state toggling, data packet injection, and system reboots.
 * Animates flowing network data packet nodes that bottleneck and turn red under Friction mode but transition into glowing, high-velocity green streams in Flow mode.
 
 ### 2. Silent Operations Drain Calculator (`Calculator.tsx`)
-* An interactive financial ledger audit calculator customized for local business bottlenecks (manual Justdial lists, siloed POS systems, delayed GST invoicing, etc.).
-* Computes real-time weekly wasted hours, monthly staff labor overhead in INR (₹), lost lead revenue, and administrative drain.
+* An interactive financial ledger audit calculator customized for local business bottlenecks (manual spreadsheets, siloed POS systems, delayed GST invoicing, etc.).
+* Computes real-time weekly wasted hours, monthly staff labor overhead in INR (₹), lost operational revenue, and administrative drain.
 * Drives a custom radial SVG gauge indicating the operational friction score with smooth dash-offset interpolation.
 
 ### 3. Services strip Accordion Stack (`Services.tsx`)
 * A full-width vertical strip accordion stack displaying our core operational engines.
 * Highlights individual strips with their system theme accent colors (Amber, Mint, Red, Blue).
-* Prioritizes high-converting **Growth Marketing** (Instagram & Meta ad campaigns, programmatic SEO, Google Maps local profile optimization) and **Automated Social Syndication Engines** first.
+* Prioritizes high-impact **Workflow Automation** (custom ERP bridges, Tally automation, WhatsApp API notifications, Zoho CRM synchronization) and **Automated Data Pipelines**.
 
 ### 4. Segment-Colored Timeline Pipeline (`Process.tsx`)
 * A horizontally spanning SVG track tracking our deployment phases: **Audit**, **Build**, and **Launch**.

@@ -28,7 +28,7 @@ export default function Home() {
     setIsAuditOpen(false);
   };
 
-  // Submit Lead Form
+  // Submit Operations Audit Form
   const handleSubmitAuditForm = (name, email, company, bottleneck, paymentId) => {
     alert(
       `DIAGNOSTIC LEAK REPORT LOGGED & PAID (₹1,000)\n` +

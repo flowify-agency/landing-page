@@ -3,7 +3,7 @@ import './globals.css';
 export const metadata = {
   title: 'Flowify — The Ultimate Business Engine for Indian Businesses',
   description: 'Flowify automates operations for Indian businesses. Custom interfaces, WhatsApp API relays, Zoho CRM pipelines, and Tally ERP integrations — we eliminate manual friction for SMBs across India.',
-  keywords: 'workflow automation India, Tally integration, WhatsApp Business automation, Zoho CRM, Razorpay automation, Indian SMB software, business automation, Justdial lead capture, custom applications India',
+  keywords: 'workflow automation India, Tally integration, WhatsApp Business automation, Zoho CRM, Razorpay automation, Indian SMB software, business automation, customer inquiry management, custom applications India',
   authors: [{ name: 'Flowify Agency' }],
   icons: {
     icon: '/favicon.png',

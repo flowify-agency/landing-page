@@ -27,7 +27,7 @@ const engines = [
     num: '02',
     title: 'Convert',
     subtitle: 'Goal: Get them to take action',
-    description: 'Turn visitors into leads or customers.',
+    description: 'Streamline customer inquiries and orders.',
     color: 'var(--color-accent)', // Step 2: Medium/A little dark Green
     features: [
       'Website',
@@ -415,7 +415,7 @@ export const Section3 = () => {
                 fontStyle: 'italic'
               }}
             >
-              Right now yourself in the convert section. As yourself watching you can be the potential lead for our agency.(Wanna be 😏?)
+              You are currently exploring our workflow architecture. Ready to streamline your operations with custom automation?
             </p>
 
             {/* Click to Contact Mailto Link */}

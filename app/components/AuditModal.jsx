@@ -8,7 +8,7 @@ export const AuditModal = ({ isOpen, onClose, computedLeak, onSubmit }) => {
     name: '',
     email: '',
     company: '',
-    bottleneck: 'Manual Lead Tracking'
+    bottleneck: 'Manual Data Entry & Invoicing'
   });
   
   const [isProcessing, setIsProcessing] = useState(false);
@@ -349,8 +349,8 @@ export const AuditModal = ({ isOpen, onClose, computedLeak, onSubmit }) => {
                 }}
                 className="modal-input"
               >
-                <option value="Manual Lead Tracking">Manual Lead Tracking</option>
-                <option value="WhatsApp API Lead Relays">WhatsApp API Lead Relays</option>
+                <option value="Manual Data Entry & Invoicing">Manual Data Entry & Invoicing</option>
+                <option value="WhatsApp API Notification Relays">WhatsApp API Notification Relays</option>
                 <option value="Zoho CRM / Zoho Flow Pipelines">Zoho CRM / Zoho Flow Pipelines</option>
                 <option value="Tally ERP Sync Delayed">Tally ERP Sync Delayed</option>
                 <option value="Siloed POS Systems">Siloed POS Systems</option>

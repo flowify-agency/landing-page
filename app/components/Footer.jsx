@@ -155,11 +155,11 @@ export const Footer = () => {
               Core Capabilities
             </h4>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem' }}>
-              <li className="capability-item">WhatsApp API Lead Relays</li>
+              <li className="capability-item">WhatsApp API Notification Relays</li>
               <li className="capability-item">Zoho Flow & Zoho CRM Relays</li>
               <li className="capability-item">Tally ERP Automatic Sync</li>
               <li className="capability-item">Razorpay Webhook Engines</li>
-              <li className="capability-item">IndiaMART & Justdial Ingestors</li>
+              <li className="capability-item">Multi-Channel ERP & Order Ingestors</li>
             </ul>
           </div>
 
@@ -184,12 +184,44 @@ export const Footer = () => {
           </div>
         </div>
 
+        {/* Mandatory Payment Gateway Policy Links */}
+        <div
+          style={{
+            borderTop: '1px solid color-mix(in srgb, var(--color-border) 40%, transparent)',
+            paddingTop: 'var(--space-4)',
+            paddingBottom: 'var(--space-4)',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px 20px',
+            fontFamily: 'var(--font-heading-mono)',
+            fontSize: '0.72rem'
+          }}
+        >
+          <a href="/terms" className="ft-lnk" style={{ color: 'var(--color-text-secondary)', textDecoration: 'none' }}>
+            Terms & Conditions
+          </a>
+          <span style={{ color: 'var(--color-border-high)' }}>•</span>
+          <a href="/privacy" className="ft-lnk" style={{ color: 'var(--color-text-secondary)', textDecoration: 'none' }}>
+            Privacy Policy
+          </a>
+          <span style={{ color: 'var(--color-border-high)' }}>•</span>
+          <a href="/refund-policy" className="ft-lnk" style={{ color: 'var(--color-text-secondary)', textDecoration: 'none' }}>
+            Cancellation & Refund Policy
+          </a>
+          <span style={{ color: 'var(--color-border-high)' }}>•</span>
+          <a href="/contact" className="ft-lnk" style={{ color: 'var(--color-text-secondary)', textDecoration: 'none' }}>
+            Contact & Service Delivery
+          </a>
+        </div>
+
         {/* Lower System Metadata Row */}
         <div 
           className="footer-bottom-row"
           style={{
-            borderTop: '1px solid color-mix(in srgb, var(--color-border) 40%, transparent)',
-            paddingTop: 'var(--space-5)',
+            borderTop: '1px solid color-mix(in srgb, var(--color-border) 25%, transparent)',
+            paddingTop: 'var(--space-4)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
