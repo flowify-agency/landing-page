@@ -101,6 +101,25 @@ export const Header = ({ onOpenAudit }) => {
 
           {/* Global Controls & Call to Action */}
           <div className="mobile-controls-gap" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            {/* Merchant Portal Login Link */}
+            <a
+              href="/dashboard"
+              className="nav-anchor-brutal"
+              style={{
+                fontFamily: 'var(--font-heading-mono)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                color: 'var(--color-text-secondary)',
+                padding: '6px 10px',
+                textDecoration: 'none',
+                borderRadius: '6px',
+                border: '1px solid color-mix(in srgb, var(--color-border) 40%, transparent)'
+              }}
+            >
+              Portal Login
+            </a>
+
             {/* Book Audit Direct Trigger */}
             <button 
               onClick={onOpenAudit}

@@ -84,11 +84,20 @@ export default function CheckoutPage({ params }) {
     }
   }, [token]);
 
-  // 2. Load Razorpay Script dynamically
+  // 2. Load Razorpay Script dynamically (with duplicate check)
   useEffect(() => {
     if (typeof window !== "undefined") {
       if (window.Razorpay) {
         setIsScriptLoaded(true);
+        return;
+      }
+      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+      if (existingScript) {
+        if (window.Razorpay) {
+          setIsScriptLoaded(true);
+        } else {
+          existingScript.addEventListener("load", () => setIsScriptLoaded(true));
+        }
         return;
       }
       const script = document.createElement("script");
@@ -176,7 +185,7 @@ export default function CheckoutPage({ params }) {
     }
   }, [status, paymentDetails]);
 
-  const handleCompletePayment = (outcome, razorpayPaymentId = null) => {
+  const handleCompletePayment = async (outcome, razorpayPaymentId = null) => {
     if (!paymentDetails) return;
     setLoading(true);
 
@@ -188,22 +197,19 @@ export default function CheckoutPage({ params }) {
       setButtonState("idle");
     }
 
-    // 1. Fire-and-forget notification to Flowify backend with keepalive
-    // This runs completely in background and informs backend even on failure
+    // Await notification to Flowify backend to ensure merchant webhook delivery & DB completion before redirect
     try {
-      fetch("/api/payment/complete", {
+      await fetch("/api/payment/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, status: outcome, razorpayPaymentId }),
         keepalive: true,
-      }).catch((err) => {
-        console.warn("Background complete notification warning:", err);
       });
     } catch (err) {
       console.warn("Payment complete dispatch error:", err);
     }
 
-    // 2. Smooth timed redirect so the user sees the confirmation card & confetti
+    // Smooth timed redirect so the user sees the confirmation card & confetti
     if (outcome === "success") {
       setTimeout(() => {
         performRedirect(outcome);

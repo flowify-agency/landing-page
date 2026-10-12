@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
   try {
+    let reqBody = {};
+    try {
+      reqBody = await request.json();
+    } catch {
+      reqBody = {};
+    }
+
     const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
@@ -15,6 +22,11 @@ export async function POST(request) {
       );
     }
 
+    const parsedAmount = Number(reqBody.amount) || 1000;
+    const amountInPaise = Math.round(parsedAmount * 100);
+    const currency = (reqBody.currency || 'INR').toUpperCase();
+    const receipt = reqBody.receipt || `receipt_audit_${Date.now()}`;
+
     const response = await fetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: {
@@ -22,9 +34,9 @@ export async function POST(request) {
         'Authorization': 'Basic ' + Buffer.from(keyId + ':' + keySecret).toString('base64'),
       },
       body: JSON.stringify({
-        amount: 100000, // ₹1,000 in paise (1000 * 100)
-        currency: 'INR',
-        receipt: `receipt_audit_${Date.now()}`
+        amount: amountInPaise,
+        currency,
+        receipt,
       })
     });
 

@@ -42,25 +42,31 @@ export async function POST(req) {
       );
     }
 
-    // Validate signature
-    const signaturePayload = `${clientId}|${depositSessionId}|${amount}|${email}`;
-    const expectedSignature = crypto
-      .createHmac("sha256", FLOWIFY_SHARED_SECRET)
-      .update(signaturePayload)
-      .digest("hex");
+    // Validate signature securely with timingSafeEqual and flexible amount formatting
+    const sigPayload1 = `${clientId}|${depositSessionId}|${amount}|${email}`;
+    const sigPayload2 = `${clientId}|${depositSessionId}|${numericAmount.toFixed(2)}|${email}`;
+    const exp1 = crypto.createHmac("sha256", FLOWIFY_SHARED_SECRET).update(sigPayload1).digest("hex");
+    const exp2 = crypto.createHmac("sha256", FLOWIFY_SHARED_SECRET).update(sigPayload2).digest("hex");
 
-    if (signature !== expectedSignature) {
-      console.error("Invalid signature on register request:", { signature, expectedSignature });
+    const sigBuf = Buffer.from(String(signature || ""), "hex");
+    const exp1Buf = Buffer.from(exp1, "hex");
+    const exp2Buf = Buffer.from(exp2, "hex");
+
+    const isMatch1 = sigBuf.length === exp1Buf.length && crypto.timingSafeEqual(sigBuf, exp1Buf);
+    const isMatch2 = sigBuf.length === exp2Buf.length && crypto.timingSafeEqual(sigBuf, exp2Buf);
+
+    if (!isMatch1 && !isMatch2) {
+      console.error("Invalid signature on register request:", { signature, expectedSignature: exp1 });
       return NextResponse.json(
         { error: "UNAUTHORIZED", message: "Invalid signature verification." },
         { status: 401 }
       );
     }
 
-    // Generate stateless token with dynamic gateway account credentials, callbackUrl and webhookUrl
+    // Generate stateless token with public fields ONLY (keySecret is stored securely in DB only)
     const token = signPaymentToken({
       clientId,
-      amount,
+      amount: numericAmount,
       depositSessionId,
       email,
       callbackUrl,
@@ -72,7 +78,7 @@ export async function POST(req) {
         id: gatewayAccount.id,
         name: gatewayAccount.name,
         keyId: gatewayAccount.keyId,
-        keySecret: gatewayAccount.keySecret,
+        // keySecret deliberately excluded to prevent browser exposure
       },
     });
 
@@ -87,36 +93,45 @@ export async function POST(req) {
       checkoutUrl = `${protocol}://${host}/checkout/${token}`;
     }
 
-    // Log payment request to MongoDB
+    // Log payment request to MongoDB with secure credentials
     try {
       const client = await clientPromise;
       const db = client.db();
-      await db.collection("PaymentRequest").insertOne({
-        clientId,
-        amount: Number(amount),
-        depositSessionId,
-        email,
-        callbackUrl,
-        webhookUrl,
-        merchantName: merchantName || "Win & Spin",
-        checkoutUrl,
-        status: "registered",
-        isMandate: !!isMandate,
-        subscriptionPlan: subscriptionPlan || null,
-        gatewayAccountId: gatewayAccount.id || "default",
-        gatewayAccount: {
-          id: gatewayAccount.id,
-          name: gatewayAccount.name,
-          keyId: gatewayAccount.keyId,
+      await db.collection("PaymentRequest").updateOne(
+        { depositSessionId },
+        {
+          $set: {
+            clientId,
+            amount: numericAmount,
+            depositSessionId,
+            email,
+            callbackUrl,
+            webhookUrl,
+            merchantName: merchantName || "Win & Spin",
+            checkoutUrl,
+            status: "registered",
+            isMandate: !!isMandate,
+            subscriptionPlan: subscriptionPlan || null,
+            mode: (gatewayAccount.keyId?.startsWith("rzp_live_") || gatewayAccount.id?.includes("live") || gatewayAccount.isLive) ? "live" : "test",
+            isLive: Boolean(gatewayAccount.keyId?.startsWith("rzp_live_") || gatewayAccount.id?.includes("live") || gatewayAccount.isLive),
+            gatewayAccountId: gatewayAccount.id || "default",
+            gatewayAccount: {
+              id: gatewayAccount.id,
+              name: gatewayAccount.name,
+              keyId: gatewayAccount.keyId,
+              keySecret: gatewayAccount.keySecret, // Kept safe on server DB
+            },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            ...(userName && { userName }),
+            ...(userId && { userId }),
+            ...(userBalance !== undefined && { userBalance: Number(userBalance) }),
+          }
         },
-        createdAt: new Date(),
-        ...(userName && { userName }),
-        ...(userId && { userId }),
-        ...(userBalance !== undefined && { userBalance: Number(userBalance) }),
-      });
+        { upsert: true }
+      );
     } catch (dbErr) {
       console.error("Failed to log payment request to MongoDB:", dbErr);
-      // Don't fail the request if DB logging fails
     }
 
     return NextResponse.json({

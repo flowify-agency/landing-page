@@ -4,8 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/preflight.mjs",
     "dev": "next dev -p 9500",
     "build": "next build",
+    "prestart": "node scripts/preflight.mjs",
     "start": "next start -p 9500",
     "lint": "next lint"
   },

@@ -17,8 +17,21 @@ export async function POST(req) {
       return NextResponse.json({ error: "INVALID_TOKEN", message: "Token is invalid or has expired." }, { status: 400 });
     }
 
-    const keyId = payload.gatewayAccount?.keyId;
-    const keySecret = payload.gatewayAccount?.keySecret;
+    // Connect to database to retrieve securely stored gateway credentials
+    let keyId = payload.gatewayAccount?.keyId;
+    let keySecret = payload.gatewayAccount?.keySecret;
+
+    try {
+      const client = await clientPromise;
+      const db = client.db();
+      const reqDoc = await db.collection("PaymentRequest").findOne({ depositSessionId: payload.depositSessionId });
+      if (reqDoc?.gatewayAccount) {
+        keyId = reqDoc.gatewayAccount.keyId || keyId;
+        keySecret = reqDoc.gatewayAccount.keySecret || keySecret;
+      }
+    } catch (dbErr) {
+      console.warn("Could not query PaymentRequest for gateway credentials, using token fallback:", dbErr);
+    }
 
     if (!keyId || !keySecret) {
       return NextResponse.json(
@@ -42,7 +55,7 @@ export async function POST(req) {
         currency: payload.currency || "INR",
         receipt: receiptId,
       }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(7000),
     });
 
     if (!response.ok) {

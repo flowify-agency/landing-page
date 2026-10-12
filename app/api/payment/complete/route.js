@@ -59,11 +59,42 @@ export async function POST(req) {
           razorpayPaymentId 
         });
       } else {
-        const keyId = payload.gatewayAccount?.keyId;
-        const keySecret = payload.gatewayAccount?.keySecret;
+        // Query database for PaymentRequest to verify order binding & retrieve server credentials
+        let keyId = payload.gatewayAccount?.keyId;
+        let keySecret = payload.gatewayAccount?.keySecret;
+        let expectedOrderId = null;
+
+        try {
+          const client = await clientPromise;
+          const db = client.db();
+          const reqDoc = await db.collection("PaymentRequest").findOne({ depositSessionId: payload.depositSessionId });
+          if (reqDoc) {
+            expectedOrderId = reqDoc.razorpayOrderId;
+            if (reqDoc.gatewayAccount) {
+              keyId = reqDoc.gatewayAccount.keyId || keyId;
+              keySecret = reqDoc.gatewayAccount.keySecret || keySecret;
+            }
+          }
+
+          // Check for replay attacks: ensure paymentId was not already consumed by another session
+          const existingConsumption = await db.collection("PaymentCompletion").findOne({
+            razorpayPaymentId,
+            depositSessionId: { $ne: payload.depositSessionId },
+            paymentStatus: { $in: ["success", "captured"] }
+          });
+          if (existingConsumption) {
+            logger.error("Replay attack detected: payment ID already consumed", { razorpayPaymentId, depositSessionId: payload.depositSessionId });
+            return NextResponse.json(
+              { error: "PAYMENT_ALREADY_USED", message: "This payment transaction has already been credited." },
+              { status: 400 }
+            );
+          }
+        } catch (dbErr) {
+          logger.warn("Database pre-check error during payment verification:", dbErr);
+        }
 
         if (!keyId || !keySecret) {
-          logger.error("Gateway credentials missing in token during verification", { depositSessionId: payload.depositSessionId });
+          logger.error("Gateway credentials missing during verification", { depositSessionId: payload.depositSessionId });
           return NextResponse.json(
             { error: "CONFIG_ERROR", message: "Gateway credentials were not provided in this payment session." },
             { status: 400 }
@@ -75,7 +106,7 @@ export async function POST(req) {
             headers: {
               Authorization: "Basic " + Buffer.from(`${keyId}:${keySecret}`).toString("base64"),
             },
-            signal: AbortSignal.timeout(5000),
+            signal: AbortSignal.timeout(7000),
           });
 
           if (!rzpResponse.ok) {
@@ -94,6 +125,18 @@ export async function POST(req) {
             logger.warn("Razorpay payment not captured/authorized", { razorpayPaymentId, rzpStatus: rzpPayment.status });
             return NextResponse.json(
               { error: "PAYMENT_NOT_CAPTURED", message: `Payment is in ${rzpPayment.status} state.` },
+              { status: 400 }
+            );
+          }
+
+          // Strict Order ID cross-verification to prevent payment substitution
+          if (expectedOrderId && rzpPayment.order_id && rzpPayment.order_id !== expectedOrderId) {
+            logger.error("Order ID mismatch detected during payment verification", {
+              expected: expectedOrderId,
+              received: rzpPayment.order_id
+            });
+            return NextResponse.json(
+              { error: "ORDER_MISMATCH", message: "Payment was not authorized for this order." },
               { status: 400 }
             );
           }
@@ -198,25 +241,46 @@ export async function POST(req) {
       const client = await clientPromise;
       const db = client.db();
 
-      // Insert completion record
-      await db.collection("PaymentCompletion").insertOne({
-        clientId: payload.clientId,
-        depositSessionId: payload.depositSessionId,
-        amount: Number(payload.amount),
-        email: payload.email,
-        callbackUrl: payload.callbackUrl,
-        paymentStatus: status,
-        razorpayPaymentId: razorpayPaymentId || null,
-        gatewayAccountId: payload.gatewayAccount?.id || "default",
-        gatewayAccount: payload.gatewayAccount || null,
-        webhookUrl,
-        webhookSuccess: response ? response.ok : false,
-        webhookStatusCode: response ? response.status : 0,
-        webhookResult: webhookResult || webhookError,
-        isMandate: !!payload.isMandate,
-        subscriptionPlan: payload.subscriptionPlan || null,
-        completedAt: new Date(),
-      });
+      const isLiveAccount = Boolean(
+        payload.gatewayAccount?.isLive ||
+        payload.gatewayAccount?.keyId?.startsWith("rzp_live_") ||
+        payload.gatewayAccount?.id?.includes("live") ||
+        payload.gatewayAccount?.name?.toLowerCase().includes("live")
+      );
+      const paymentMode = isLiveAccount ? "live" : "test";
+
+      // Upsert completion record safely with both completedAt and createdAt
+      const now = new Date();
+      await db.collection("PaymentCompletion").updateOne(
+        { depositSessionId: payload.depositSessionId },
+        {
+          $set: {
+            clientId: payload.clientId,
+            depositSessionId: payload.depositSessionId,
+            amount: Number(payload.amount),
+            email: payload.email,
+            callbackUrl: payload.callbackUrl,
+            paymentStatus: status,
+            razorpayPaymentId: razorpayPaymentId || null,
+            gatewayAccountId: payload.gatewayAccount?.id || "default",
+            gatewayAccount: payload.gatewayAccount || null,
+            webhookUrl,
+            webhookSuccess: Boolean(response && response.ok),
+            webhookStatusCode: response ? response.status : 0,
+            webhookResult: webhookResult || webhookError,
+            isMandate: !!payload.isMandate,
+            subscriptionPlan: payload.subscriptionPlan || null,
+            mode: paymentMode,
+            isLive: isLiveAccount,
+            completedAt: now,
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            createdAt: now,
+          },
+        },
+        { upsert: true }
+      );
 
       // Update the original PaymentRequest status atomically if it's still registered
       const targetStatus = status === "success" ? "success" : "failed";
@@ -226,7 +290,9 @@ export async function POST(req) {
           $set: { 
             status: targetStatus, 
             razorpayPaymentId: razorpayPaymentId || null,
-            updatedAt: new Date() 
+            mode: paymentMode,
+            isLive: isLiveAccount,
+            updatedAt: now 
           } 
         }
       );
@@ -237,9 +303,9 @@ export async function POST(req) {
       });
     }
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       return NextResponse.json(
-        { error: "WEBHOOK_FAILED", message: `Webhook callback failed: ${webhookError}` },
+        { error: "WEBHOOK_FAILED", message: `Webhook callback failed: ${webhookError || "Network error"}` },
         { status: 502 }
       );
     }
